@@ -36,8 +36,10 @@ app.get("/", (req, res) => {
 // import Routers
 
 import todoRouter from "./routes/todo/todo.routes.js";
+import dailyTaskRouter from "./routes/todo/dailyTask.routes.js";
 
 app.use("/api/v1/todos", todoRouter);
+app.use("/api/v1/daily-task", dailyTaskRouter);
 
 // common error handling middleware
 app.use(errorHandler);
