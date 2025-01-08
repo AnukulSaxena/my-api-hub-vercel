@@ -37,9 +37,11 @@ app.get("/", (req, res) => {
 
 import todoRouter from "./routes/todo/todo.routes.js";
 import dailyTaskRouter from "./routes/todo/dailyTask.routes.js";
+import taskCompletionRouter from "./routes/todo/taskCompletion.routes.js";
 
 app.use("/api/v1/todos", todoRouter);
 app.use("/api/v1/daily-task", dailyTaskRouter);
+app.use("/api/v1/task-completion", taskCompletionRouter);
 
 // common error handling middleware
 app.use(errorHandler);

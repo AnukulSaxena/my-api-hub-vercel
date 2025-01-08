@@ -11,4 +11,8 @@ router
   .route("/:owner")
   .get(getOwnerDailyTask);
 
+
+router
+  .route("/:owner/:dailyTaskId")
+
 export default router;
