@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { z } from "zod";
 
 export const TaskCompletionZodSchema = z.object({
   owner: z.string().nonempty("Owner is required"),
@@ -7,6 +8,13 @@ export const TaskCompletionZodSchema = z.object({
     .nonempty("Task ID is required")
     .regex(/^[a-f\d]{24}$/, "Invalid ObjectId"),
   date: z.date(),
+});
+
+export const FetchTaskCompletionSchema = z.object({
+  owner: z.string().nonempty(),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), {
+    message: "Invalid date format",
+  }),
 });
 
 const taskCompletionSchema = new Schema(

@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { z } from "zod";
-import { mongoIdSchema } from "../global.models";
+import { mongoIdSchema } from "../global.models.js";
 
 export const DailyTaskZodSchema = z.object({
   owner: z.string().nonempty("Owner is required"),

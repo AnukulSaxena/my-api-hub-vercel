@@ -7,8 +7,7 @@ import {
 } from "../../models/todo/dailyTask.models.js";
 
 export const createDailyTask = asyncHandler(async (req, res) => {
-  DailyTaskZodSchema.parse(req.body);
-  const newTask = new DailyTask(req.body);
+  const newTask = new DailyTask(DailyTaskZodSchema.parse(req.body));
   await newTask.save();
 
   return res

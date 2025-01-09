@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createDailyTask, getOwnerDailyTask } from "../../controllers/todo/dailyTask.controller.js";
+import { createDailyTask, deleteDailyTask, getOwnerDailyTask } from "../../controllers/todo/dailyTask.controller.js";
 
 const router = Router();
 
@@ -14,5 +14,6 @@ router
 
 router
   .route("/:owner/:dailyTaskId")
+  .delete(deleteDailyTask);
 
 export default router;
