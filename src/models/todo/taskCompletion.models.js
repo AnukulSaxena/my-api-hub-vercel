@@ -7,7 +7,9 @@ export const TaskCompletionZodSchema = z.object({
     .string()
     .nonempty("Task ID is required")
     .regex(/^[a-f\d]{24}$/, "Invalid ObjectId"),
-  date: z.date(),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), {
+    message: "Invalid date format",
+  }),
 });
 
 export const FetchTaskCompletionSchema = z.object({
