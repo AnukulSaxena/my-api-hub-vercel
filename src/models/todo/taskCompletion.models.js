@@ -25,6 +25,7 @@ const taskCompletionSchema = new Schema(
       type: String,
       required: true,
       index: true,
+      lowercase: true,
     },
     taskId: {
       type: Schema.Types.ObjectId,
