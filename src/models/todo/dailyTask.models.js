@@ -5,6 +5,7 @@ import { mongoIdSchema } from "../global.models.js";
 export const DailyTaskZodSchema = z.object({
   owner: z.string().nonempty("Owner is required"),
   title: z.string().nonempty("Title is required"),
+  isActive: z.optional(z.boolean()),
 });
 
 export const DeleteDailyTaskZodSchema = z.object({
@@ -24,6 +25,11 @@ const dailyTaskSchema = new Schema(
       required: true,
       index: true,
     },
+    isActive:{
+      type: Boolean,
+      required: false,
+      default: true
+    }
   },
   { timestamps: true }
 );

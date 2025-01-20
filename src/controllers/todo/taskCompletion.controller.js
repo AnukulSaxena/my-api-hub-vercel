@@ -27,7 +27,7 @@ export const createTaskCompletion = asyncHandler(async (req, res) => {
         $gte: startDate,
         $lt: endDate,
       },
-    }); // Populate task details if needed
+    }); 
   
     return res
       .status(200)

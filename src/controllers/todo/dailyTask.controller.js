@@ -17,7 +17,7 @@ export const createDailyTask = asyncHandler(async (req, res) => {
 
 export const getOwnerDailyTask = asyncHandler(async (req, res) => {
   const { owner } = req.params;
-  const tasks = await DailyTask.find({ owner });
+  const tasks = await DailyTask.find({ owner, isActive: true });
   return res
     .status(200)
     .json(new ApiResponse(200, tasks || [], "Owner's daily tasks fetched"));
@@ -26,13 +26,21 @@ export const getOwnerDailyTask = asyncHandler(async (req, res) => {
 export const deleteDailyTask = asyncHandler(async (req, res) => {
   const { owner, dailyTaskId } = DeleteDailyTaskZodSchema.parse(req.params);
 
-  const deletionResult = await DailyTask.deleteOne({ _id: dailyTaskId, owner });
-
-  if (deletionResult.deletedCount === 0) {
+  const dailyTask = await DailyTask.findById(dailyTaskId);
+  if(!dailyTask)
     return res
-      .status(404)
-      .json(new ApiResponse(404, null, "Daily task not found or not owned by the specified user"));
+  .status(404)
+  .json(new ApiResponse(404, null, "Daily task not found"));
+
+  if(dailyTask.owner !== owner){
+    return res
+    .status(404)
+    .json(new ApiResponse(404, null, "not owned by the specified user"));
   }
+
+  dailyTask.isActive = false;
+  dailyTask.save();
+
 
   return res
     .status(200)
