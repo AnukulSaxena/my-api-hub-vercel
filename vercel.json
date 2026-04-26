@@ -1,5 +1,11 @@
 {
   "version": 2,
   "builds": [{ "src": "./index.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "/" }]
+  "routes": [{ "src": "/(.*)", "dest": "/" }],
+  "crons": [
+    {
+      "path": "/api/v1/internal/cron/habits/mark-missed",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

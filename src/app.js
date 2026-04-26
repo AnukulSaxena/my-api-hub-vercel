@@ -3,6 +3,10 @@ import dotenv from "dotenv";
 dotenv.config({
   path: "./.env",
 });
+import { assertJwtEnv } from "./config/jwt.config.js";
+
+assertJwtEnv();
+
 import { createServer } from "http";
 import requestIp from "request-ip";
 import cookieParser from "cookie-parser";
@@ -39,7 +43,15 @@ import todoRouter from "./routes/todo/todo.routes.js";
 import dailyTaskRouter from "./routes/todo/dailyTask.routes.js";
 import taskCompletionRouter from "./routes/todo/taskCompletion.routes.js";
 import stackItemRouter from "./routes/todo/stackItem.routes.js";
+import authRouter from "./routes/auth/auth.routes.js";
+import habitRouter from "./routes/habit/habit.routes.js";
+import habitOccurrenceRouter from "./routes/habit/habitOccurrence.routes.js";
+import internalCronRouter from "./routes/internal/cron.routes.js";
 
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/internal/cron", internalCronRouter);
+app.use("/api/v1/habits", habitRouter);
+app.use("/api/v1/habit-occurrences", habitOccurrenceRouter);
 app.use("/api/v1/todos", todoRouter);
 app.use("/api/v1/daily-task", dailyTaskRouter);
 app.use("/api/v1/task-completion", taskCompletionRouter);
