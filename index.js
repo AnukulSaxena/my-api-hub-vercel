@@ -5,17 +5,17 @@ dotenv.config({
 import { httpServer } from "./src/app.js";
 import connectDB from "./src/db/index.js";
 
+const PORT = Number(process.env.PORT) || 8080;
+
 const startServer = () => {
-  httpServer.listen(process.env.PORT || 8080, () => {
-    console.info(
-      `⚙️  Server is running on port: http://localhost:${
-        process.env.PORT || 8080
-      }`
-    );
+  // Cloud Run / containers: bind all interfaces (not localhost-only)
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.info(`⚙️  Server listening on 0.0.0.0:${PORT}`);
   });
 };
 
 try {
+  console.log(`PORT=${PORT} (from env: ${process.env.PORT ?? "unset"})`);
   console.log("Connecting to database...");
   await connectDB();
   console.log("Database connected successfully.");

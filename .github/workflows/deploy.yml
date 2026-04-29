@@ -32,9 +32,15 @@ jobs:
           docker push $IMAGE
 
       - name: Deploy to Cloud Run
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
         run: |
           gcloud run deploy my-service \
             --image=asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/app \
             --region=${{ secrets.GCP_REGION }} \
             --platform=managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --set-env-vars=NODE_ENV=production,PORT=8080,MONGODB_URI=$MONGODB_URI,JWT_ACCESS_SECRET=$JWT_ACCESS_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,CORS_ORIGIN=$CORS_ORIGIN
