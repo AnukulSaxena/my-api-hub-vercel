@@ -78,16 +78,25 @@ const listHabitsQueryValidator = [
   query("limit").optional().isInt({ min: 1, max: 100 }),
 ];
 
+/** GET /habits/:id/occurrences — omit both `from` and `to` to list all (paginated). */
 const listOccurrencesQueryValidator = [
+  query("from").optional({ checkFalsy: true }).isISO8601(),
+  query("to").optional({ checkFalsy: true }).isISO8601(),
+  query("status")
+    .optional()
+    .isIn(["pending", "completed", "missed", "skipped"]),
+  query("page").optional().isInt({ min: 1 }),
+  query("limit").optional().isInt({ min: 1, max: 100 }),
+];
+
+/** GET /habits/agenda — always requires a UTC window */
+const userAgendaQueryValidator = [
   query("from").notEmpty().isISO8601(),
   query("to").notEmpty().isISO8601(),
   query("status")
     .optional()
     .isIn(["pending", "completed", "missed", "skipped"]),
 ];
-
-/** Same query shape as list occurrences, for GET /habits/agenda */
-const userAgendaQueryValidator = listOccurrencesQueryValidator;
 
 export {
   createHabitValidator,

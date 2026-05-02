@@ -255,24 +255,48 @@ const listOccurrences = asyncHandler(async (req, res) => {
   const { habitTaskId } = req.params;
   await getOwnedTaskOrThrow(userId, habitTaskId);
   const { from, to, status } = req.query;
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  if (fromDate > toDate) {
-    throw new ApiError(400, "from must be before or equal to to");
+  const fromStr = from != null ? String(from).trim() : "";
+  const toStr = to != null ? String(to).trim() : "";
+  const hasFrom = Boolean(fromStr);
+  const hasTo = Boolean(toStr);
+  if (hasFrom !== hasTo) {
+    throw new ApiError(
+      400,
+      "Provide both from and to (ISO8601), or omit both to list all occurrences for this habit."
+    );
   }
   const filter = {
     habitTaskId: new mongoose.Types.ObjectId(habitTaskId),
     userId: new mongoose.Types.ObjectId(userId),
-    scheduledStartAt: { $gte: fromDate, $lte: toDate },
   };
+  if (hasFrom && hasTo) {
+    const fromDate = new Date(fromStr);
+    const toDate = new Date(toStr);
+    if (fromDate > toDate) {
+      throw new ApiError(400, "from must be before or equal to to");
+    }
+    filter.scheduledStartAt = { $gte: fromDate, $lte: toDate };
+  }
   if (status) {
     filter.status = status;
   }
-  const items = await HabitOccurrence.find(filter)
-    .sort({ scheduledStartAt: 1 })
-    .limit(500)
-    .lean();
-  return res.status(200).json(new ApiResponse(200, { items }, "OK"));
+  const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
+  const limit = Math.min(
+    100,
+    Math.max(1, Number.parseInt(String(req.query.limit ?? "20"), 10) || 20),
+  );
+  const skip = (page - 1) * limit;
+  const [total, items] = await Promise.all([
+    HabitOccurrence.countDocuments(filter),
+    HabitOccurrence.find(filter)
+      .sort({ scheduledStartAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { items, page, limit, total }, "OK"));
 });
 
 const AGENDA_LIMIT = 50;
