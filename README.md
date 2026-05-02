@@ -27,7 +27,7 @@ Deploy:
 
 - `gcloud run deploy my-api-hub --image gcr.io/<YOUR_GCP_PROJECT_ID>/my-api-hub:latest --platform managed --region <YOUR_REGION> --allow-unauthenticated --port 8080`
 
-Set runtime environment variables on Cloud Run:
+Set runtime environment variables on Cloud Run (do not set `PORT`; Cloud Run sets it automatically):
 
 - `MONGODB_URI`
 - `JWT_ACCESS_SECRET`

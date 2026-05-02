@@ -6,10 +6,11 @@ export let dbInstance = undefined;
 
 const connectDB = async () => {
   try {
-    console.log(process.env.MONGODB_URI);
-    const connectionInstance = await mongoose.connect(
-      `${process.env.MONGODB_URI}/${DB_NAME}`
-    );
+    const uri = `${process.env.MONGODB_URI}/${DB_NAME}`;
+    const connectionInstance = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 20_000,
+      connectTimeoutMS: 20_000,
+    });
     dbInstance = connectionInstance;
     console.log(
       `\n☘️  MongoDB Connected! Db host: ${connectionInstance.connection.host}\n`

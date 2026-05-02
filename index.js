@@ -7,19 +7,26 @@ import connectDB from "./src/db/index.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 
-const startServer = () => {
-  // Cloud Run / containers: bind all interfaces (not localhost-only)
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.info(`⚙️  Server listening on 0.0.0.0:${PORT}`);
+function listen() {
+  return new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      httpServer.removeListener("error", reject);
+      resolve(undefined);
+    });
   });
-};
+}
 
 try {
   console.log(`PORT=${PORT} (from env: ${process.env.PORT ?? "unset"})`);
+  // Bind HTTP first so Cloud Run passes its "listening on PORT" probe even if DB is slow.
+  await listen();
+  console.info(`⚙️  Server listening on 0.0.0.0:${PORT}`);
+
   console.log("Connecting to database...");
   await connectDB();
   console.log("Database connected successfully.");
-  startServer();
 } catch (err) {
-  console.error("MongoDB connection error:", err);
+  console.error("Startup error:", err);
+  process.exit(1);
 }

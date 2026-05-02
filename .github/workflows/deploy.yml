@@ -43,4 +43,5 @@ jobs:
             --region=${{ secrets.GCP_REGION }} \
             --platform=managed \
             --allow-unauthenticated \
+            --cpu-boost \
             --set-env-vars=NODE_ENV=production,MONGODB_URI=$MONGODB_URI,JWT_ACCESS_SECRET=$JWT_ACCESS_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,CORS_ORIGIN=$CORS_ORIGIN
