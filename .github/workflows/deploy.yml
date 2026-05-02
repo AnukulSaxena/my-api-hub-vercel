@@ -43,4 +43,4 @@ jobs:
             --region=${{ secrets.GCP_REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars=NODE_ENV=production,PORT=8080,MONGODB_URI=$MONGODB_URI,JWT_ACCESS_SECRET=$JWT_ACCESS_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,CORS_ORIGIN=$CORS_ORIGIN
+            --set-env-vars=NODE_ENV=production,MONGODB_URI=$MONGODB_URI,JWT_ACCESS_SECRET=$JWT_ACCESS_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,CORS_ORIGIN=$CORS_ORIGIN
