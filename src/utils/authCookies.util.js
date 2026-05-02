@@ -1,7 +1,21 @@
 import { getAccessTokenOptions, getRefreshTokenOptions } from "../config/jwt.config.js";
 
-export const ACCESS_TOKEN_COOKIE = "access_token";
-export const REFRESH_TOKEN_COOKIE = "refresh_token";
+function readCookieName(envKey, fallback) {
+  const v = process.env[envKey]?.trim();
+  return v && v.length > 0 ? v : fallback;
+}
+
+/** httpOnly access JWT — name configurable to avoid generic collisions on shared hosts. */
+export const ACCESS_TOKEN_COOKIE = readCookieName(
+  "AUTH_ACCESS_TOKEN_COOKIE_NAME",
+  "myapihub_access_token"
+);
+
+/** httpOnly refresh JWT */
+export const REFRESH_TOKEN_COOKIE = readCookieName(
+  "AUTH_REFRESH_TOKEN_COOKIE_NAME",
+  "myapihub_refresh_token"
+);
 
 /**
  * @param {string | undefined} expiresIn e.g. "15m", "7d"

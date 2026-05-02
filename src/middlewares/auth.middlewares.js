@@ -3,7 +3,7 @@ import { verifyAccessToken } from "../utils/jwt.util.js";
 import { ACCESS_TOKEN_COOKIE } from "../utils/authCookies.util.js";
 
 /**
- * Verifies access JWT from the httpOnly `access_token` cookie and sets `req.user`.
+ * Verifies access JWT from the httpOnly access cookie (name from `authCookies.util.js`) and sets `req.user`.
  * @type {import("express").RequestHandler}
  */
 export function authenticate(req, res, next) {

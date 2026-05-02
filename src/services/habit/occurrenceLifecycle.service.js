@@ -9,6 +9,7 @@ import {
   startOfUtcDay,
   tryMaterializeNextAfterResolution,
 } from "./recurrence.service.js";
+import { parseUtcIsoInstant } from "../../utils/parseUtcIsoInstant.js";
 
 /**
  * @param {object} params
@@ -144,10 +145,9 @@ export async function transitionOccurrence(userIdStr, occurrenceIdStr, body) {
     return occ;
   }
 
-  const completedAt = body.completedAt ? new Date(body.completedAt) : new Date();
-  if (Number.isNaN(completedAt.getTime())) {
-    throw new ApiError(400, "Invalid completedAt");
-  }
+  const completedAt = body.completedAt
+    ? parseUtcIsoInstant(body.completedAt, "completedAt")
+    : new Date();
 
   const onTime = completedAt <= occ.scheduledEndAt;
   const minutesLate = onTime

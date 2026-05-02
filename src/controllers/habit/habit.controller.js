@@ -13,6 +13,10 @@ import {
   assertStartsOnNotInPast,
   assertEndsOnCoversStartsOnUtcDay,
 } from "../../services/habit/recurrence.service.js";
+import {
+  parseUtcIsoInstant,
+  parseUtcIsoInstantOptional,
+} from "../../utils/parseUtcIsoInstant.js";
 
 async function getOwnedTaskOrThrow(userId, habitTaskId) {
   const task = await HabitTask.findOne({
@@ -44,9 +48,15 @@ const createHabit = asyncHandler(async (req, res) => {
     recurrence.payload
   );
 
-  const startsOnDate = new Date(recurrence.startsOn);
+  const startsOnDate = parseUtcIsoInstant(
+    recurrence.startsOn,
+    "recurrence.startsOn"
+  );
   assertStartsOnNotInPast(startsOnDate);
-  const endsOnDate = recurrence.endsOn ? new Date(recurrence.endsOn) : null;
+  const endsOnDate = parseUtcIsoInstantOptional(
+    recurrence.endsOn,
+    "recurrence.endsOn"
+  );
   assertEndsOnCoversStartsOnUtcDay(startsOnDate, endsOnDate);
 
   const horizon = Math.min(
@@ -184,9 +194,9 @@ const addRecurrence = asyncHandler(async (req, res) => {
 
   const validatedPayload = validateRecurrencePayload(kind, payload);
 
-  const startsOnDate = new Date(startsOn);
+  const startsOnDate = parseUtcIsoInstant(startsOn, "startsOn");
   assertStartsOnNotInPast(startsOnDate);
-  const endsOnDate = endsOn ? new Date(endsOn) : null;
+  const endsOnDate = parseUtcIsoInstantOptional(endsOn, "endsOn");
   assertEndsOnCoversStartsOnUtcDay(startsOnDate, endsOnDate);
 
   await cancelFuturePendingOccurrences(task._id);
@@ -228,8 +238,8 @@ const materializeOccurrences = asyncHandler(async (req, res) => {
   const { habitTaskId } = req.params;
   const { from, to } = req.body;
   const task = await getOwnedTaskOrThrow(userId, habitTaskId);
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
+  const fromDate = parseUtcIsoInstant(from, "from");
+  const toDate = parseUtcIsoInstant(to, "to");
   if (fromDate > toDate) {
     throw new ApiError(400, "from must be before or equal to to");
   }
@@ -270,8 +280,8 @@ const listOccurrences = asyncHandler(async (req, res) => {
     userId: new mongoose.Types.ObjectId(userId),
   };
   if (hasFrom && hasTo) {
-    const fromDate = new Date(fromStr);
-    const toDate = new Date(toStr);
+    const fromDate = parseUtcIsoInstant(fromStr, "from");
+    const toDate = parseUtcIsoInstant(toStr, "to");
     if (fromDate > toDate) {
       throw new ApiError(400, "from must be before or equal to to");
     }
@@ -308,8 +318,8 @@ const AGENDA_LIMIT = 50;
 const listUserAgenda = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const { from, to, status = "pending" } = req.query;
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
+  const fromDate = parseUtcIsoInstant(from, "from");
+  const toDate = parseUtcIsoInstant(to, "to");
   if (fromDate > toDate) {
     throw new ApiError(400, "from must be before or equal to to");
   }
