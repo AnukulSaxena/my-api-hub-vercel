@@ -9,10 +9,13 @@ import {
   validateRecurrencePayload,
   cancelFuturePendingOccurrences,
   materializeOccurrencesForWindow,
-  startOfUtcDay,
   assertStartsOnNotInPast,
-  assertEndsOnCoversStartsOnUtcDay,
 } from "../../services/habit/recurrence.service.js";
+import {
+  normalizeTaskTimeZone,
+  zonedStartOfDayContaining,
+  assertEndsOnCoversStartsOnInZone,
+} from "../../utils/habitZonedTime.util.js";
 import {
   parseUtcIsoInstant,
   parseUtcIsoInstantOptional,
@@ -57,7 +60,8 @@ const createHabit = asyncHandler(async (req, res) => {
     recurrence.endsOn,
     "recurrence.endsOn"
   );
-  assertEndsOnCoversStartsOnUtcDay(startsOnDate, endsOnDate);
+  const taskTimeZone = normalizeTaskTimeZone(timezone);
+  assertEndsOnCoversStartsOnInZone(startsOnDate, endsOnDate, taskTimeZone);
 
   const horizon = Math.min(
     90,
@@ -74,7 +78,7 @@ const createHabit = asyncHandler(async (req, res) => {
       description: description ?? "",
       priority: priority ?? 0,
       tags: Array.isArray(tags) ? tags : [],
-      timezone: timezone ?? "UTC",
+      timezone: taskTimeZone,
       definitionStatus: definitionStatus ?? "active",
       metadata: taskMetadata,
     });
@@ -104,8 +108,9 @@ const createHabit = asyncHandler(async (req, res) => {
   let materializeSummary = null;
   if (rule) {
     const now = new Date();
-    const fromA = startOfUtcDay(now);
-    const fromB = startOfUtcDay(rule.startsOn);
+    const tz = normalizeTaskTimeZone(task.timezone);
+    const fromA = zonedStartOfDayContaining(now, tz);
+    const fromB = zonedStartOfDayContaining(new Date(rule.startsOn), tz);
     const from = fromA > fromB ? fromA : fromB;
     const horizonForSearch = Math.max(horizon, 1);
     const to = new Date(from.getTime() + horizonForSearch * 86400000);
@@ -197,7 +202,11 @@ const addRecurrence = asyncHandler(async (req, res) => {
   const startsOnDate = parseUtcIsoInstant(startsOn, "startsOn");
   assertStartsOnNotInPast(startsOnDate);
   const endsOnDate = parseUtcIsoInstantOptional(endsOn, "endsOn");
-  assertEndsOnCoversStartsOnUtcDay(startsOnDate, endsOnDate);
+  assertEndsOnCoversStartsOnInZone(
+    startsOnDate,
+    endsOnDate,
+    normalizeTaskTimeZone(task.timezone)
+  );
 
   await cancelFuturePendingOccurrences(task._id);
   await HabitRecurrenceRule.updateMany(

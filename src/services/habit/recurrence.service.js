@@ -1,51 +1,17 @@
 import mongoose from "mongoose";
+import { DateTime } from "luxon";
 import { ApiError } from "../../utils/ApiError.js";
 import { HabitOccurrence } from "../../models/habit/habitOccurrence.model.js";
 import { HabitTask } from "../../models/habit/habitTask.model.js";
 import { RECURRENCE_KINDS } from "../../models/habit/habitRecurrenceRule.model.js";
 import { HabitRecurrenceRule } from "../../models/habit/habitRecurrenceRule.model.js";
-
-/** @param {Date} d */
-export function startOfUtcDay(d) {
-  const x = new Date(d);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
-}
-
-/** @param {Date} d */
-export function endOfUtcDay(d) {
-  const x = new Date(d);
-  x.setUTCHours(23, 59, 59, 999);
-  return x;
-}
-
-/** @param {Date} d */
-function startOfUtcWeekSunday(d) {
-  const x = startOfUtcDay(d);
-  const dow = x.getUTCDay();
-  x.setUTCDate(x.getUTCDate() - dow);
-  return x;
-}
-
-/** @param {Date} d */
-export function utcTimePartsFromDate(d) {
-  return {
-    h: d.getUTCHours(),
-    m: d.getUTCMinutes(),
-    s: d.getUTCSeconds(),
-    ms: d.getUTCMilliseconds(),
-  };
-}
-
-/**
- * @param {Date} dayStart from startOfUtcDay
- * @param {{ h: number; m: number; s: number; ms: number }} parts
- */
-export function combineUtcDayWithTime(dayStart, parts) {
-  const x = new Date(dayStart);
-  x.setUTCHours(parts.h, parts.m, parts.s, parts.ms);
-  return x;
-}
+import {
+  normalizeTaskTimeZone,
+  wallTimeFromUtcInstantInZone,
+  slotFromZonedDayWall,
+  startOfZonedWeekSunday,
+  zonedStartOfDayContaining,
+} from "../../utils/habitZonedTime.util.js";
 
 /**
  * @param {string | Date} startsOn
@@ -61,23 +27,13 @@ export function assertStartsOnNotInPast(startsOn) {
   }
 }
 
-/**
- * @param {Date} startsOn
- * @param {Date | null | undefined} endsOn
- */
-export function assertEndsOnCoversStartsOnUtcDay(startsOn, endsOn) {
-  if (!endsOn) return;
-  const s = startOfUtcDay(startsOn);
-  const e = startOfUtcDay(endsOn);
-  if (s > e) {
-    throw new ApiError(400, "endsOn must be on or after startsOn (UTC calendar day)");
-  }
-}
-
-/** @param {import("../../models/habit/habitRecurrenceRule.model.js").HabitRecurrenceRule} rule */
-function isRuleDayPastEndsOn(dayDate, rule) {
+/** @param {import("luxon").DateTime} zDay */
+function isRuleDayPastEndsOn(zDay, rule, zone) {
   if (!rule.endsOn) return false;
-  return startOfUtcDay(dayDate) > startOfUtcDay(rule.endsOn);
+  const endDayStart = DateTime.fromJSDate(new Date(rule.endsOn), { zone: "utc" })
+    .setZone(zone)
+    .startOf("day");
+  return zDay.startOf("day").toMillis() > endDayStart.toMillis();
 }
 
 /**
@@ -112,7 +68,7 @@ export function validateRecurrencePayload(kind, payload) {
       }
       for (const d of byWeekday) {
         if (typeof d !== "number" || d < 0 || d > 6 || !Number.isInteger(d)) {
-          throw new ApiError(400, "weekly.payload.byWeekday values must be integers 0-6 (Sun-Sat UTC)");
+          throw new ApiError(400, "weekly.payload.byWeekday values must be integers 0-6 (Sun-Sat, habit timezone)");
         }
       }
       const intervalWeeks = p.intervalWeeks ?? 1;
@@ -217,8 +173,9 @@ export async function tryMaterializeNextAfterResolution(habitTaskId, userId) {
   }
 
   const now = new Date();
-  const fromA = startOfUtcDay(now);
-  const fromB = startOfUtcDay(rule.startsOn);
+  const zone = normalizeTaskTimeZone(task.timezone);
+  const fromA = zonedStartOfDayContaining(now, zone);
+  const fromB = zonedStartOfDayContaining(new Date(rule.startsOn), zone);
   const from = fromA > fromB ? fromA : fromB;
   const to = new Date(from.getTime() + horizon * 86400000);
 
@@ -232,7 +189,7 @@ export async function tryMaterializeNextAfterResolution(habitTaskId, userId) {
 }
 
 /**
- * Build occurrence slots for [from, to] inclusive (UTC day boundaries for iteration).
+ * Build occurrence slots for [from, to] inclusive (calendar days in the habit IANA timezone).
  * @param {object} params
  * @param {import("../../models/habit/habitTask.model.js").HabitTask} params.habitTask
  * @param {import("../../models/habit/habitRecurrenceRule.model.js").HabitRecurrenceRule} params.rule
@@ -240,64 +197,67 @@ export async function tryMaterializeNextAfterResolution(habitTaskId, userId) {
  * @param {Date} params.to
  */
 export function buildOccurrenceSlots({ habitTask, rule, from, to }) {
+  const zone = normalizeTaskTimeZone(habitTask.timezone);
   const slots = [];
-  const fromDay = startOfUtcDay(from);
-  const toDay = startOfUtcDay(to);
-  if (fromDay > toDay) return slots;
+  const rangeFirst = DateTime.fromJSDate(from, { zone: "utc" }).setZone(zone).startOf("day");
+  const rangeLast = DateTime.fromJSDate(to, { zone: "utc" }).setZone(zone).startOf("day");
+  if (rangeFirst > rangeLast) return slots;
 
   const kind = rule.kind;
   const payload = rule.payload || {};
   const taskId = habitTask._id.toString();
   const startsOnDate = new Date(rule.startsOn);
-  const timeParts = utcTimePartsFromDate(startsOnDate);
+  const wall = wallTimeFromUtcInstantInZone(startsOnDate, zone);
 
   if (kind === "once") {
-    const dayD = startOfUtcDay(startsOnDate);
-    if (isRuleDayPastEndsOn(dayD, rule)) {
+    const zStarts = DateTime.fromJSDate(startsOnDate, { zone: "utc" }).setZone(zone).startOf("day");
+    if (isRuleDayPastEndsOn(zStarts, rule, zone)) {
       return slots;
     }
-    if (dayD < fromDay || dayD > toDay) {
+    if (zStarts < rangeFirst || zStarts > rangeLast) {
       return slots;
     }
     slots.push({
       occurrenceKey: `${taskId}:once`,
-      scheduledStartAt: combineUtcDayWithTime(dayD, timeParts),
-      scheduledEndAt: endOfUtcDay(dayD),
+      scheduledStartAt: startsOnDate,
+      scheduledEndAt: DateTime.fromJSDate(startsOnDate, { zone: "utc" })
+        .setZone(zone)
+        .endOf("day")
+        .toUTC()
+        .toJSDate(),
     });
     return slots;
   }
 
   if (kind === "daily") {
     const intervalDays = payload.intervalDays ?? 1;
-    for (let d = new Date(fromDay); d <= toDay; ) {
-      if (isRuleDayPastEndsOn(d, rule)) break;
-      const key = `${taskId}:daily:${d.toISOString().slice(0, 10)}`;
-      const dayStart = startOfUtcDay(d);
+    for (let z = rangeFirst; z.toMillis() <= rangeLast.toMillis(); z = z.plus({ days: intervalDays })) {
+      if (isRuleDayPastEndsOn(z, rule, zone)) break;
+      const { scheduledStartAt, scheduledEndAt } = slotFromZonedDayWall(z, wall, zone);
       slots.push({
-        occurrenceKey: key,
-        scheduledStartAt: combineUtcDayWithTime(dayStart, timeParts),
-        scheduledEndAt: endOfUtcDay(d),
+        occurrenceKey: `${taskId}:daily:${z.toISODate()}`,
+        scheduledStartAt,
+        scheduledEndAt,
       });
-      d.setUTCDate(d.getUTCDate() + intervalDays);
     }
     return slots;
   }
 
   if (kind === "every_n_days") {
     const intervalDays = payload.intervalDays;
-    const anchor = startOfUtcDay(rule.startsOn);
-    const msDay = 86400000;
-    for (let d = new Date(fromDay); d <= toDay; d.setUTCDate(d.getUTCDate() + 1)) {
-      if (isRuleDayPastEndsOn(d, rule)) break;
-      const diff = Math.floor((startOfUtcDay(d) - anchor) / msDay);
-      if (diff < 0) continue;
-      if (diff % intervalDays !== 0) continue;
-      const key = `${taskId}:n${intervalDays}:${d.toISOString().slice(0, 10)}`;
-      const dayStart = startOfUtcDay(d);
+    const anchor = DateTime.fromJSDate(new Date(rule.startsOn), { zone: "utc" })
+      .setZone(zone)
+      .startOf("day");
+    for (let z = rangeFirst; z.toMillis() <= rangeLast.toMillis(); z = z.plus({ days: 1 })) {
+      if (isRuleDayPastEndsOn(z, rule, zone)) break;
+      const diffDays = Math.floor(z.startOf("day").diff(anchor.startOf("day")).as("days"));
+      if (diffDays < 0) continue;
+      if (diffDays % intervalDays !== 0) continue;
+      const { scheduledStartAt, scheduledEndAt } = slotFromZonedDayWall(z, wall, zone);
       slots.push({
-        occurrenceKey: key,
-        scheduledStartAt: combineUtcDayWithTime(dayStart, timeParts),
-        scheduledEndAt: endOfUtcDay(d),
+        occurrenceKey: `${taskId}:n${intervalDays}:${z.toISODate()}`,
+        scheduledStartAt,
+        scheduledEndAt,
       });
     }
     return slots;
@@ -306,21 +266,26 @@ export function buildOccurrenceSlots({ habitTask, rule, from, to }) {
   if (kind === "weekly") {
     const byWeekday = new Set(payload.byWeekday);
     const intervalWeeks = payload.intervalWeeks ?? 1;
-    const anchorWeek = startOfUtcWeekSunday(rule.startsOn);
+    const anchorWeekStart = startOfZonedWeekSunday(
+      DateTime.fromJSDate(new Date(rule.startsOn), { zone: "utc" }).setZone(zone).startOf("day")
+    );
+    const msWeek = 7 * 86400000;
 
-    for (let d = new Date(fromDay); d <= toDay; d.setUTCDate(d.getUTCDate() + 1)) {
-      if (isRuleDayPastEndsOn(d, rule)) break;
-      if (!byWeekday.has(d.getUTCDay())) continue;
-      const weekStart = startOfUtcWeekSunday(d);
-      const weeksDiff = Math.floor((weekStart - anchorWeek) / (7 * 86400000));
+    for (let z = rangeFirst; z.toMillis() <= rangeLast.toMillis(); z = z.plus({ days: 1 })) {
+      if (isRuleDayPastEndsOn(z, rule, zone)) break;
+      const jsD = z.weekday === 7 ? 0 : z.weekday;
+      if (!byWeekday.has(jsD)) continue;
+      const weekStart = startOfZonedWeekSunday(z);
+      const weeksDiff = Math.floor(
+        (weekStart.toUTC().toMillis() - anchorWeekStart.toUTC().toMillis()) / msWeek
+      );
       if (weeksDiff < 0) continue;
       if (weeksDiff % intervalWeeks !== 0) continue;
-      const key = `${taskId}:w:${d.toISOString().slice(0, 10)}`;
-      const dayStart = startOfUtcDay(d);
+      const { scheduledStartAt, scheduledEndAt } = slotFromZonedDayWall(z, wall, zone);
       slots.push({
-        occurrenceKey: key,
-        scheduledStartAt: combineUtcDayWithTime(dayStart, timeParts),
-        scheduledEndAt: endOfUtcDay(d),
+        occurrenceKey: `${taskId}:w:${z.toISODate()}`,
+        scheduledStartAt,
+        scheduledEndAt,
       });
     }
     return slots;

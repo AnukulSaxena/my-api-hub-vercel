@@ -3,13 +3,14 @@ import { ApiError } from "../../utils/ApiError.js";
 import { HabitOccurrence } from "../../models/habit/habitOccurrence.model.js";
 import { HabitOccurrenceEvent } from "../../models/habit/habitOccurrenceEvent.model.js";
 import { HabitRecurrenceRule } from "../../models/habit/habitRecurrenceRule.model.js";
-import {
-  addOffset,
-  endOfUtcDay,
-  startOfUtcDay,
-  tryMaterializeNextAfterResolution,
-} from "./recurrence.service.js";
+import { HabitTask } from "../../models/habit/habitTask.model.js";
+import { addOffset, tryMaterializeNextAfterResolution } from "./recurrence.service.js";
 import { parseUtcIsoInstant } from "../../utils/parseUtcIsoInstant.js";
+import {
+  normalizeTaskTimeZone,
+  zonedStartOfDayContaining,
+  zonedEndOfDayContaining,
+} from "../../utils/habitZonedTime.util.js";
 
 /**
  * @param {object} params
@@ -61,14 +62,16 @@ export async function appendOccurrenceEvent({
  */
 async function spawnNextCompletionBased(occ, completedAt, rule) {
   if (rule.kind !== "completion_based") return null;
+  const task = await HabitTask.findById(occ.habitTaskId).select("timezone").lean();
+  const zone = normalizeTaskTimeZone(task?.timezone);
   const payload = rule.payload || {};
   const base =
     payload.anchor === "last_scheduled_start_at"
       ? occ.scheduledStartAt
       : completedAt;
   const rawNext = addOffset(base, payload.offset);
-  const nextStart = startOfUtcDay(rawNext);
-  const nextEnd = endOfUtcDay(rawNext);
+  const nextStart = zonedStartOfDayContaining(rawNext, zone);
+  const nextEnd = zonedEndOfDayContaining(rawNext, zone);
   const key = `${occ.habitTaskId.toString()}:cb:${nextStart.getTime()}`;
 
   const doc = {
@@ -76,7 +79,7 @@ async function spawnNextCompletionBased(occ, completedAt, rule) {
     userId: occ.userId,
     recurrenceRuleId: rule._id,
     recurrenceRuleVersion: rule.version,
-    scheduledStartAt: startOfUtcDay(nextStart),
+    scheduledStartAt: nextStart,
     scheduledEndAt: nextEnd,
     occurrenceKey: key,
     status: "pending",
