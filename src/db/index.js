@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
-import { DB_NAME } from "../constants.js";
+import { getDbName } from "../constants.js";
 
 /** @type {typeof mongoose | undefined} */
 export let dbInstance = undefined;
 
 const connectDB = async () => {
   try {
-    const uri = `${process.env.MONGODB_URI}/${DB_NAME}`;
+    const uri = `${process.env.MONGODB_URI}/${getDbName()}`;
     const connectionInstance = await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 20_000,
       connectTimeoutMS: 20_000,

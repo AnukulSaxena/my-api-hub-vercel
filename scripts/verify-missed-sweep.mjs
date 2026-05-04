@@ -2,11 +2,10 @@
  * Integration check for missed occurrence sweep (requires MongoDB via .env).
  * Run from repo root: node scripts/verify-missed-sweep.mjs
  */
-import dotenv from "dotenv";
-dotenv.config({ path: "./.env" });
+import "./bootstrap-dotenv.mjs";
 
 import mongoose from "mongoose";
-import { DB_NAME } from "../src/constants.js";
+import { getDbName } from "../src/constants.js";
 import { User } from "../src/models/user.model.js";
 import { HabitTask } from "../src/models/habit/habitTask.model.js";
 import { HabitRecurrenceRule } from "../src/models/habit/habitRecurrenceRule.model.js";
@@ -28,7 +27,7 @@ async function main() {
     process.exit(1);
   }
 
-  await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);
+  await mongoose.connect(`${process.env.MONGODB_URI}/${getDbName()}`);
 
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const user = await User.create({

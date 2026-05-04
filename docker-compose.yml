@@ -10,8 +10,9 @@ services:
       PORT: "8080"
       NODE_ENV: development
 
-      # MongoDB Atlas (base URI only; app appends DB name from src/constants.js)
+      # MongoDB Atlas (base URI only; app appends DB name — development uses LOCAL_API_HUB_DB)
       MONGODB_URI: ${MONGODB_URI}
+      LOCAL_API_HUB_DB: ${LOCAL_API_HUB_DB}
 
       # CORS: "*" or comma-separated origins (used with credentials: true)
       CORS_ORIGIN: ${CORS_ORIGIN}
