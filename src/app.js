@@ -47,8 +47,10 @@ import authRouter from "./routes/auth/auth.routes.js";
 import habitRouter from "./routes/habit/habit.routes.js";
 import habitOccurrenceRouter from "./routes/habit/habitOccurrence.routes.js";
 import internalCronRouter from "./routes/internal/cron.routes.js";
+import userPreferencesRouter from "./routes/user/userPreferences.routes.js";
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/users/me/preferences", userPreferencesRouter);
 app.use("/api/v1/internal/cron", internalCronRouter);
 app.use("/api/v1/habits", habitRouter);
 app.use("/api/v1/habit-occurrences", habitOccurrenceRouter);

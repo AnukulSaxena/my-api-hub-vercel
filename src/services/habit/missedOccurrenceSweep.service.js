@@ -17,7 +17,7 @@ export async function markOverduePendingAsMissed(opts = {}) {
 
   const candidates = await HabitOccurrence.find({
     status: "pending",
-    scheduledEndAt: { $lt: now },
+    scheduledEndAt: { $ne: null, $lt: now },
   })
     .sort({ scheduledEndAt: 1 })
     .limit(limit)
@@ -33,7 +33,7 @@ export async function markOverduePendingAsMissed(opts = {}) {
       {
         _id: row._id,
         status: "pending",
-        scheduledEndAt: { $lt: now },
+        scheduledEndAt: { $ne: null, $lt: now },
       },
       { $set: { status: "missed", missedAt: now } },
       { new: true }

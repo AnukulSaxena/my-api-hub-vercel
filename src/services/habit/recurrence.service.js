@@ -11,6 +11,7 @@ import {
   slotFromZonedDayWall,
   startOfZonedWeekSunday,
   zonedStartOfDayContaining,
+  zonedEndOfDayContaining,
 } from "../../utils/habitZonedTime.util.js";
 
 /**
@@ -115,6 +116,9 @@ export function validateRecurrencePayload(kind, payload) {
       }
       return { anchor, offset: { unit, value } };
     }
+    case "once": {
+      return {};
+    }
     default:
       throw new ApiError(400, "Unsupported recurrence kind");
   }
@@ -217,14 +221,13 @@ export function buildOccurrenceSlots({ habitTask, rule, from, to }) {
     if (zStarts < rangeFirst || zStarts > rangeLast) {
       return slots;
     }
+    const scheduledEndAt = rule.endsOn
+      ? zonedEndOfDayContaining(new Date(rule.endsOn), zone)
+      : null;
     slots.push({
       occurrenceKey: `${taskId}:once`,
       scheduledStartAt: startsOnDate,
-      scheduledEndAt: DateTime.fromJSDate(startsOnDate, { zone: "utc" })
-        .setZone(zone)
-        .endOf("day")
-        .toUTC()
-        .toJSDate(),
+      scheduledEndAt,
     });
     return slots;
   }

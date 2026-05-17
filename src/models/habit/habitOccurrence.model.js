@@ -23,7 +23,7 @@ const habitOccurrenceSchema = new mongoose.Schema(
     },
     recurrenceRuleVersion: { type: Number, required: true },
     scheduledStartAt: { type: Date, required: true, index: true },
-    scheduledEndAt: { type: Date, required: true, index: true },
+    scheduledEndAt: { type: Date, default: null, index: true },
     occurrenceKey: { type: String, required: true },
     status: {
       type: String,

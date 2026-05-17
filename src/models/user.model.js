@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    preferences: {
+      dashboardSort: { type: mongoose.Schema.Types.Mixed, default: null },
+    },
   },
   { timestamps: true }
 );

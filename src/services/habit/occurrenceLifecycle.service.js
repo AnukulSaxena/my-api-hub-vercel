@@ -152,10 +152,14 @@ export async function transitionOccurrence(userIdStr, occurrenceIdStr, body) {
     ? parseUtcIsoInstant(body.completedAt, "completedAt")
     : new Date();
 
-  const onTime = completedAt <= occ.scheduledEndAt;
-  const minutesLate = onTime
-    ? 0
-    : Math.ceil((completedAt - occ.scheduledEndAt) / 60000);
+  const onTime =
+    occ.scheduledEndAt == null || completedAt <= occ.scheduledEndAt;
+  const minutesLate =
+    occ.scheduledEndAt == null
+      ? 0
+      : onTime
+        ? 0
+        : Math.ceil((completedAt - occ.scheduledEndAt) / 60000);
 
   occ.status = "completed";
   occ.completedAt = completedAt;

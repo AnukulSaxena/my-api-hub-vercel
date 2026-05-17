@@ -322,7 +322,7 @@ const AGENDA_LIMIT = 50;
 
 /**
  * All pending (or selected status) occurrences for the user in a time window, joined with task
- * for display. Sorted by task priority (desc) then scheduledStartAt (asc).
+ * for display. Client applies user dashboard sort preferences.
  */
 const listUserAgenda = asyncHandler(async (req, res) => {
   const userId = req.user.id;
@@ -345,37 +345,46 @@ const listUserAgenda = asyncHandler(async (req, res) => {
     .limit(200)
     .lean();
 
-  const rows = occs
+  const ruleIds = [
+    ...new Set(
+      occs
+        .map((o) => o.recurrenceRuleId)
+        .filter(Boolean)
+        .map((id) => id.toString())
+    ),
+  ];
+  const rules = await HabitRecurrenceRule.find({
+    _id: { $in: ruleIds },
+  })
+    .select("kind")
+    .lean();
+  /** @type {Map<string, string>} */
+  const kindByRuleId = new Map(rules.map((r) => [r._id.toString(), r.kind]));
+
+  const items = occs
     .filter(
       (o) =>
         o.habitTaskId &&
         typeof o.habitTaskId === "object" &&
         o.habitTaskId.definitionStatus !== "archived"
     )
+    .slice(0, AGENDA_LIMIT)
     .map((o) => {
       const t = o.habitTaskId;
       const pr = typeof t.priority === "number" ? t.priority : 0;
+      const ruleId = o.recurrenceRuleId?.toString?.() ?? String(o.recurrenceRuleId);
+      const recurrenceKind = kindByRuleId.get(ruleId) ?? "daily";
       return {
-        pr,
         occurrence: { ...o, habitTaskId: t._id },
         task: {
           _id: t._id,
           title: t.title,
           priority: pr,
           tags: Array.isArray(t.tags) ? t.tags : [],
+          recurrenceKind,
         },
       };
     });
-  rows.sort((a, b) => {
-    if (b.pr !== a.pr) {
-      return b.pr - a.pr;
-    }
-    return new Date(a.occurrence.scheduledStartAt) - new Date(b.occurrence.scheduledStartAt);
-  });
-  const items = rows.slice(0, AGENDA_LIMIT).map((r) => ({
-    occurrence: r.occurrence,
-    task: r.task,
-  }));
   return res.status(200).json(new ApiResponse(200, { items }, "OK"));
 });
 
